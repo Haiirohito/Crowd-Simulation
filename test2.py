@@ -78,7 +78,6 @@ def classify_element(el, style_fill, group_label):
     Decide whether an element is wall / door / room / other using group_label and fill color.
     Returns one of: "wall", "door", "room", None (None -> default to room)
     """
-    # normalize
     fill = (style_fill or "").strip().lower()
     g = (group_label or "").lower()
 
@@ -90,8 +89,7 @@ def classify_element(el, style_fill, group_label):
     if "room" in g or "floor" in g or "area" in g:
         return "room"
 
-    # color-based heuristics (hex codes often used in CubiCasa)
-    # walls often black-ish; doors often red-ish; rooms often light gray / beige
+    # walls -> black-ish; doors -> red-ish; rooms -?>light gray
     if fill.startswith("#"):
         if fill in ("#000000", "#010101", "#1a1a1a"):
             return "wall"
@@ -102,13 +100,12 @@ def classify_element(el, style_fill, group_label):
 
     # style may include fill:rgba(...) or fill:none
     if "fill:none" in fill or "fill:transparent" in fill:
-        # outline-only shapes often represent walls; prefer wall if ambiguous
+        # outline-only shapes often represent walls; prefer wall
         # but if group_label contains room -> choose room
         if "room" in g:
             return "room"
         return "wall"
 
-    # fallback: treat as room to be conservative
     return "room"
 
 
@@ -133,7 +130,6 @@ def parse_svg(svg_path, image_size=(1024, 1024)):
             except Exception:
                 vb_w = vb_h = None
 
-    # if viewBox present compute scale; else we'll scale shapes to image_size roughly
     h, w = image_size
     if vb_w and vb_h:
         sx = w / vb_w
@@ -142,7 +138,6 @@ def parse_svg(svg_path, image_size=(1024, 1024)):
         def transform(p):
             return int(round((p[0] - vb_x) * sx)), int(round((p[1] - vb_y) * sy))
     else:
-        # no viewbox: assume coordinates fit inside image_size or are already pixel coords
         def transform(p):
             return int(round(p[0])), int(round(p[1]))
 
@@ -215,10 +210,8 @@ def parse_svg(svg_path, image_size=(1024, 1024)):
                 elif typ == "door":
                     cv2.fillPoly(door_mask, [arr], 255)
                 else:
-                    # default to room for unknown / room
                     cv2.fillPoly(room_mask, [arr], 255)
             except Exception:
-                # ignore element errors but continue
                 continue
 
     doc.unlink()
@@ -303,10 +296,4 @@ def batch_parse(base_dir=INPUT_BASE, save_dir=OUTPUT_BASE):
 
 
 if __name__ == "__main__":
-    # note: svgpathtools optional; if not installed path elements will be skipped
-    if spt is None:
-        print(
-            "[INFO] svgpathtools not found — <path> elements will be skipped or not sampled."
-        )
-        print("  To enable better path handling: pip install svgpathtools")
     batch_parse()

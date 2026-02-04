@@ -67,6 +67,10 @@ while gui.running:
 
     render.draw(gui)
     rec.capture_frame(render.img)
+    rec.record_density(sim.density_grid)
+    
+    sim.compute_velocity_field()
+    rec.record_velocity(sim.velocity_grid)
 
     avg_spd = sim.avg_speed[None]
     exited = sim.exited_count[None]

@@ -9,12 +9,12 @@ from maze import (
 )
 
 max_agents = NUM_AGENTS
-pos = ti.Vector.field(2, float, max_agents)
-vel = ti.Vector.field(2, float, max_agents)
-next_pos = ti.Vector.field(2, float, max_agents)
-next_vel = ti.Vector.field(2, float, max_agents)
-alive = ti.field(ti.i32, max_agents)
-goal_idx = ti.field(ti.i32, max_agents)
+pos = ti.Vector.field(2, float, max_agents) # Agent position
+vel = ti.Vector.field(2, float, max_agents) # Agent velocity
+next_pos = ti.Vector.field(2, float, max_agents) # Agent next (to be predicted) position
+next_vel = ti.Vector.field(2, float, max_agents) # Agent next (to be predicted) velocity
+alive = ti.field(ti.i32, max_agents) # alive and in the room
+goal_idx = ti.field(ti.i32, max_agents) # Here doors
 
 grid = ti.field(ti.i32, shape=(GRID_W, GRID_H))
 dist = ti.field(ti.i32, shape=(GRID_W, GRID_H))
@@ -27,13 +27,18 @@ num_doors = ti.field(ti.i32, ())
 grid_head = ti.field(ti.i32, shape=(GRID_W, GRID_H))
 particle_next = ti.field(ti.i32, shape=max_agents)
 
+
 # Density field for pathfinding
 density_grid = ti.field(ti.f32, shape=(GRID_W, GRID_H))
+
+# Velocity field for flow visualization (accumulated velocity per cell)
+velocity_grid = ti.Vector.field(2, ti.f32, shape=(GRID_W, GRID_H))
+
 
 # Metrics
 avg_speed = ti.field(ti.f32, shape=())
 exited_count = ti.field(ti.i32, shape=())
-max_density_val = ti.field(ti.f32, shape=())
+max_density_val = ti.field(ti.f32, shape=())    
 
 # Detailed Metrics Fields
 total_dist = ti.field(ti.f32, shape=max_agents)
@@ -140,6 +145,37 @@ def compute_metrics():
         avg_speed[None] = total_speed / count
     else:
         avg_speed[None] = 0.0
+
+
+@ti.kernel
+def compute_velocity_field():
+    # 1. Clear grid
+    for i, j in velocity_grid:
+        velocity_grid[i, j] = ti.Vector([0.0, 0.0])
+    
+    # 2. Accumulate velocities and counts
+    # We can reuse density_grid to store counts temporarily if strict sync isn't an issue,
+    # but density_grid is used for pathfinding. 
+    # Let's use a local temporary approach or just iterate agents.
+    # Parallel scatter add is fine.
+    
+    for i in range(max_agents):
+        if alive[i] == 1:
+            p = pos[i]
+            v = vel[i]
+            gx = int(p.x)
+            gy = int(p.y)
+            if 0 <= gx < GRID_W and 0 <= gy < GRID_H:
+                ti.atomic_add(velocity_grid[gx, gy], v)
+
+    # 3. Normalize by density (count)
+    # computed in compute_density just before this usually.
+    # Note: density_grid contains the count of agents per cell from `compute_density` kernel.
+    for i, j in velocity_grid:
+        count = density_grid[i, j]
+        if count > 0:
+            velocity_grid[i, j] /= count
+
 
 
 @ti.kernel

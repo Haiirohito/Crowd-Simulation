@@ -4,24 +4,23 @@ import taichi as ti
 import numpy as np
 from datetime import datetime
 
+
 class SimulationRecorder:
     def __init__(self, base_path="results"):
         self.timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         self.output_dir = os.path.join(base_path, self.timestamp)
-        
+
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
-            
+
         print(f"Recording results to: {self.output_dir}")
-        
-        # Initialize VideoManager
-        # framerate=60 to match the simulation time step roughly, or 30 for standard video
-        self.video_manager = ti.tools.VideoManager(output_dir=self.output_dir, framerate=30, automatic_build=False)
+
+        self.video_manager = ti.tools.VideoManager(
+            output_dir=self.output_dir, framerate=30, automatic_build=False
+        )
         self.frame_count = 0
 
-        # Store density frames
         self.density_frames = []
-        # Store velocity frames
         self.velocity_frames = []
 
     def capture_frame(self, img_field):
@@ -37,7 +36,6 @@ class SimulationRecorder:
         Records the current state of the density field.
         density_field: ti.field
         """
-        # Convert to numpy and copy
         d_np = density_field.to_numpy()
         self.density_frames.append(d_np)
 
@@ -46,7 +44,6 @@ class SimulationRecorder:
         Records the current state of the velocity field.
         velocity_field: ti.Vector.field(2)
         """
-        # Convert to numpy and copy
         v_np = velocity_field.to_numpy()
         self.velocity_frames.append(v_np)
 
@@ -70,19 +67,17 @@ class SimulationRecorder:
         except Exception as e:
             print(f"Failed to create MP4 video (ffmpeg might be missing): {e}")
             print("Frames are saved in the output directory.")
-        
-        # Save density data
+
         if self.density_frames:
             print(f"Saving {len(self.density_frames)} frames of density data...")
-            density_array = np.array(self.density_frames) # Shape: (frames, W, H)
+            density_array = np.array(self.density_frames)
             npy_path = os.path.join(self.output_dir, "density_data.npy")
             np.save(npy_path, density_array)
             print(f"Density data saved to {npy_path}")
 
-        # Save velocity data
         if self.velocity_frames:
             print(f"Saving {len(self.velocity_frames)} frames of velocity data...")
-            velocity_array = np.array(self.velocity_frames) # Shape: (frames, W, H, 2)
+            velocity_array = np.array(self.velocity_frames)
             npy_path = os.path.join(self.output_dir, "velocity_data.npy")
             np.save(npy_path, velocity_array)
             print(f"Velocity data saved to {npy_path}")

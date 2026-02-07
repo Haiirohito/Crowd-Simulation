@@ -17,7 +17,7 @@ import os
 from recorder import SimulationRecorder
 
 sim.initialize(seed=42)
-sim.update_spatial_hash() # Prime the hash for the first frame
+sim.update_spatial_hash()
 render.make_img()
 render.cache_static_map()
 
@@ -40,7 +40,7 @@ while gui.running:
         sim.predict_step(dt)
         sim.check_reached_goal(current_time)
         sim.update_spatial_hash()
-        sim.resolve_collisions(2) # 2 iterations per substep is enough
+        sim.resolve_collisions(2)
         sim.commit_next()
     
     # Metrics Update
@@ -49,7 +49,7 @@ while gui.running:
     
     # Collect data
     alive_count = sum([int(sim.alive[i]) for i in range(NUM_AGENTS)])
-    active_agents = NUM_AGENTS - sim.exited_count[None] # Approx
+    active_agents = NUM_AGENTS - sim.exited_count[None]
     
     # Calculate avg min dist from sum
     min_dist_sum = sim.min_dist_sum_frame[None]
@@ -91,7 +91,6 @@ while gui.running:
     gui.show()
     frame += 1
 
-# End of simulation analysis
 print("Simulation finished. Generating report...")
 metrics.set_agent_data(
     sim.exit_time.to_numpy(),

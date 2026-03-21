@@ -20,21 +20,29 @@ def find_latest_results_dir(base_path="results"):
     return latest_dir
 
 def generate_theoretical_flow(results_dir):
-    print("Generating Theoretical Flow Map (Seed 42 reconstruction)...")
+    print("Generating Theoretical Flow Map...")
     
-    grid_py = make_maze_borders_and_rooms(seed=42)
-    doors_py = place_doors_on_outer_wall(grid_py)
-    dist_py = compute_distance_field_bfs(grid_py, doors_py)
+    state_path = os.path.join(results_dir, "sim_state.npz")
+    if os.path.exists(state_path):
+        state = np.load(state_path)
+        grid_np = state['grid']
+        dist_np = state['dist']
+        W, H = grid_np.shape
+    else:
+        print(" (Fallback: Seed 42 reconstruction)")
+        grid_py = make_maze_borders_and_rooms(seed=42)
+        doors_py = place_doors_on_outer_wall(grid_py)
+        dist_py = compute_distance_field_bfs(grid_py, doors_py)
+        W, H = GRID_W, GRID_H
+        grid_np = np.array(grid_py)
+        dist_np = np.array(dist_py)
     
-    W, H = GRID_W, GRID_H
     U = np.zeros((W, H))
     V = np.zeros((W, H))
     
-    dist_np = np.array(dist_py)
-    
     for x in range(1, W - 1):
         for y in range(1, H - 1):
-            if grid_py[x][y] == 1:
+            if grid_np[x, y] == 1:
                 continue # Wall
             
             d_curr = dist_np[x, y]
@@ -43,9 +51,10 @@ def generate_theoretical_flow(results_dir):
             
             for dx, dy in [(-1,0), (1,0), (0,-1), (0,1)]:
                 nx, ny = x+dx, y+dy
-                if dist_np[nx, ny] < min_n:
-                    min_n = dist_np[nx, ny]
-                    best_dx, best_dy = dx, dy
+                if 0 <= nx < W and 0 <= ny < H:
+                    if dist_np[nx, ny] < min_n:
+                        min_n = dist_np[nx, ny]
+                        best_dx, best_dy = dx, dy
             
             U[x, y] = best_dx
             V[x, y] = best_dy
@@ -54,8 +63,7 @@ def generate_theoretical_flow(results_dir):
     
     X, Y = np.meshgrid(np.arange(H), np.arange(W))
     
-    plt.imshow(np.array(grid_py).T, origin='lower', cmap='binary', alpha=0.3)
-    
+    plt.imshow(grid_np.T, origin='lower', cmap='binary', alpha=0.3)
     
     x = np.arange(W)
     y = np.arange(H)
@@ -86,9 +94,20 @@ def generate_heatmaps(results_dir):
         print(f"Loading density data from {data_path}...")
         density_data = np.load(data_path)
         
+        # Load grid for background if available
+        bg_grid = None
+        state_path = os.path.join(results_dir, "sim_state.npz")
+        if os.path.exists(state_path):
+            bg_grid = np.load(state_path)['grid']
+
         # Peak
-        peak_density_map = np.max(density_data, axis=0)
+        peak_density_map = np.max(density_data, axis=0).astype(float)
+        peak_density_map[peak_density_map == 0] = np.nan
+        
         plt.figure(figsize=(10, 10))
+        if bg_grid is not None:
+             plt.imshow(bg_grid.T, origin='lower', cmap='binary', alpha=0.3)
+             
         plt.imshow(peak_density_map.T, origin='lower', cmap='inferno')
         plt.colorbar(label='Max Agents per Cell')
         plt.title('Peak Congestion Heatmap (Max Density per Cell)')
@@ -98,8 +117,13 @@ def generate_heatmaps(results_dir):
         print(f"Saved {output_path_peak}")
 
         # Average
-        avg_density_map = np.mean(density_data, axis=0)
+        avg_density_map = np.mean(density_data, axis=0).astype(float)
+        avg_density_map[avg_density_map == 0] = np.nan
+        
         plt.figure(figsize=(10, 10))
+        if bg_grid is not None:
+             plt.imshow(bg_grid.T, origin='lower', cmap='binary', alpha=0.3)
+             
         plt.imshow(avg_density_map.T, origin='lower', cmap='viridis')
         plt.colorbar(label='Avg Agents per Cell')
         plt.title('Average Density Heatmap (Time-Averaged)')
@@ -128,7 +152,11 @@ def generate_heatmaps(results_dir):
             
             plt.figure(figsize=(10, 10))
             
-            if os.path.exists(data_path):
+            state_path = os.path.join(results_dir, "sim_state.npz")
+            if os.path.exists(state_path):
+                 grid_np = np.load(state_path)['grid']
+                 plt.imshow(grid_np.T, origin='lower', cmap='binary', alpha=0.3)
+            elif os.path.exists(data_path):
                  avg_den = np.mean(np.load(data_path), axis=0)
                  plt.imshow(avg_den.T, origin='lower', cmap='Greys', alpha=0.5)
             

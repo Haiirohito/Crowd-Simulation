@@ -35,3 +35,5 @@ crowdSim/results/
 crowdSim/testing/
 imgui.ini
 *.log
+
+.zip
